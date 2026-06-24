@@ -26,7 +26,13 @@ class VendorDuplicationError(BaseModel):
 
     model_config = ConfigDict(str_strip_whitespace=True, strict=True)
 
-    code: Literal["invalid_total_amount", "invalid_vendor_data", "data_access_error"]
+    code: Literal[
+        "invalid_total_amount",
+        "invalid_vendor_data",
+        "data_file_not_found",
+        "missing_data_key",
+        "unexpected_error",
+    ]
     message: str
     context: dict[str, Any] = Field(default_factory=dict)
 
@@ -114,10 +120,24 @@ def check_vendor_duplication(
 
     try:
         raw_vendors = load_vendors()
+    except FileNotFoundError as exc:
+        error = VendorDuplicationError(
+            code="data_file_not_found",
+            message=f"Vendor data file not found: {exc}",
+            context={"vendor_id": vendor_id, "category": category},
+        )
+        return {"error": error.model_dump()}
+    except KeyError as exc:
+        error = VendorDuplicationError(
+            code="missing_data_key",
+            message=f"Missing expected key in vendor data: {exc}",
+            context={"vendor_id": vendor_id, "category": category},
+        )
+        return {"error": error.model_dump()}
     except Exception as exc:
         error = VendorDuplicationError(
-            code="data_access_error",
-            message=f"Failed to load vendor data: {exc}",
+            code="unexpected_error",
+            message=f"Unexpected vendor duplication error: {exc}",
             context={"vendor_id": vendor_id, "category": category},
         )
         return {"error": error.model_dump()}
