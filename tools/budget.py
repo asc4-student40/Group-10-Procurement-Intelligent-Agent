@@ -28,7 +28,9 @@ class BudgetError(BaseModel):
         "invalid_requested_amount",
         "unknown_cost_center",
         "invalid_budget_data",
-        "data_access_error",
+        "data_file_not_found",
+        "missing_data_key",
+        "unexpected_error",
     ]
     message: str
     context: dict[str, Any] = Field(default_factory=dict)
@@ -101,10 +103,24 @@ def check_budget(
 
     try:
         raw_budgets = load_budgets()
+    except FileNotFoundError as exc:
+        error = BudgetError(
+            code="data_file_not_found",
+            message=f"Budget data file not found: {exc}",
+            context={"cost_center_id": cost_center_id},
+        )
+        return {"error": error.model_dump()}
+    except KeyError as exc:
+        error = BudgetError(
+            code="missing_data_key",
+            message=f"Missing expected key in budget data: {exc}",
+            context={"cost_center_id": cost_center_id},
+        )
+        return {"error": error.model_dump()}
     except Exception as exc:
         error = BudgetError(
-            code="data_access_error",
-            message=f"Failed to load budget data: {exc}",
+            code="unexpected_error",
+            message=f"Unexpected budget tool error: {exc}",
             context={"cost_center_id": cost_center_id},
         )
         return {"error": error.model_dump()}

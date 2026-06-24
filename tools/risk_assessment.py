@@ -24,7 +24,13 @@ class RiskAssessmentError(BaseModel):
 
     model_config = ConfigDict(str_strip_whitespace=True, strict=True)
 
-    code: Literal["unknown_vendor", "invalid_vendor_data", "data_access_error"]
+    code: Literal[
+        "unknown_vendor",
+        "invalid_vendor_data",
+        "data_file_not_found",
+        "missing_data_key",
+        "unexpected_error",
+    ]
     message: str
     context: dict[str, Any] = Field(default_factory=dict)
 
@@ -68,10 +74,24 @@ def assess_risk(vendor_id: str) -> dict[str, Any]:
     """
     try:
         raw_vendors = load_vendors()
+    except FileNotFoundError as exc:
+        error = RiskAssessmentError(
+            code="data_file_not_found",
+            message=f"Vendor data file not found: {exc}",
+            context={"vendor_id": vendor_id},
+        )
+        return {"error": error.model_dump()}
+    except KeyError as exc:
+        error = RiskAssessmentError(
+            code="missing_data_key",
+            message=f"Missing expected key in vendor data: {exc}",
+            context={"vendor_id": vendor_id},
+        )
+        return {"error": error.model_dump()}
     except Exception as exc:
         error = RiskAssessmentError(
-            code="data_access_error",
-            message=f"Failed to load vendor data: {exc}",
+            code="unexpected_error",
+            message=f"Unexpected risk assessment error: {exc}",
             context={"vendor_id": vendor_id},
         )
         return {"error": error.model_dump()}

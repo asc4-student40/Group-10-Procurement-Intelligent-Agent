@@ -71,7 +71,9 @@ class PolicyComplianceError(BaseModel):
         "invalid_policy_data",
         "invalid_vendor_data",
         "invalid_budget_data",
-        "data_access_error",
+        "data_file_not_found",
+        "missing_data_key",
+        "unexpected_error",
     ]
     message: str
     context: dict[str, Any] = Field(default_factory=dict)
@@ -150,10 +152,24 @@ def check_policy_compliance(
         raw_policies = load_policies()
         raw_vendors = load_vendors()
         raw_budgets = load_budgets()
+    except FileNotFoundError as exc:
+        error = PolicyComplianceError(
+            code="data_file_not_found",
+            message=f"Policy dependency data file not found: {exc}",
+            context={"request_id": purchase_request.request_id},
+        )
+        return {"error": error.model_dump()}
+    except KeyError as exc:
+        error = PolicyComplianceError(
+            code="missing_data_key",
+            message=f"Missing expected key in policy dependency data: {exc}",
+            context={"request_id": purchase_request.request_id},
+        )
+        return {"error": error.model_dump()}
     except Exception as exc:
         error = PolicyComplianceError(
-            code="data_access_error",
-            message=f"Failed to load policy dependencies: {exc}",
+            code="unexpected_error",
+            message=f"Unexpected policy compliance error: {exc}",
             context={"request_id": purchase_request.request_id},
         )
         return {"error": error.model_dump()}
