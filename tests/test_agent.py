@@ -25,6 +25,15 @@ def _get_request_by_id(request_id: str) -> PurchaseRequest:
     raise AssertionError(f"Request fixture not found: {request_id}")
 
 
+def _get_raw_request_by_id(request_id: str) -> dict[str, Any]:
+    """Load one raw request fixture by request_id."""
+    for raw_request in load_requests():
+        if raw_request.get("request_id") == request_id:
+            return raw_request
+
+    raise AssertionError(f"Request fixture not found: {request_id}")
+
+
 def _make_scripted_model(request: PurchaseRequest):
     """Create a deterministic model that calls tools then emits structured output."""
 
@@ -91,22 +100,21 @@ def _make_scripted_model(request: PurchaseRequest):
         budget_result = tool_outputs.get("check_budget", {})
         outside_budget = budget_result.get("within_budget") is False
 
-        duplication_result = tool_outputs.get("check_vendor_duplication", {})
-        duplication_deny = duplication_result.get("forced_decision") == "deny"
-
         risk_result = tool_outputs.get("assess_risk", {})
         compliance_flagged = risk_result.get("compliance_flag") is True
+
+        near_director_threshold = request.total_amount >= 49_500.0
 
         if has_tool_error or compliance_flagged or "POL-006" in triggered_policy_ids:
             decision = "escalate"
         elif (
-            "POL-004" in triggered_policy_ids
+            "POL-001" in triggered_policy_ids
+            or "POL-004" in triggered_policy_ids
             or "POL-005" in triggered_policy_ids
-            or "POL-008" in triggered_policy_ids
-            or duplication_deny
-            or outside_budget
         ):
             decision = "deny"
+        elif outside_budget or "POL-008" in triggered_policy_ids:
+            decision = "escalate" if near_director_threshold else "deny"
         elif "POL-003" in triggered_policy_ids:
             decision = "escalate"
         else:
@@ -134,7 +142,7 @@ def _make_scripted_model(request: PurchaseRequest):
     return _scripted_model
 
 
-async def _run_fixture_case(request_id: str):
+def _run_fixture_case(request_id: str):
     """Run one request fixture through a deterministic, tool-calling agent."""
     request = _get_request_by_id(request_id)
 
@@ -145,7 +153,7 @@ async def _run_fixture_case(request_id: str):
         tools=[check_budget, check_vendor_duplication, check_policy_compliance, assess_risk],
     )
 
-    raw_result = await test_agent.run(f"Evaluate request {request.request_id}")
+    raw_result = test_agent.run_sync(f"Evaluate request {request.request_id}")
     recommendation = getattr(raw_result, "data", None)
     if recommendation is None:
         recommendation = getattr(raw_result, "output")
@@ -154,37 +162,27 @@ async def _run_fixture_case(request_id: str):
     return SimpleNamespace(data=recommendation)
 
 
-@pytest.mark.asyncio
-async def test_agent_approve_req_001() -> None:
-    """REQ-001 should be approved."""
-    result = await _run_fixture_case("REQ-001")
+@pytest.mark.parametrize(
+    "request_id",
+    [
+        "REQ-006",
+        "REQ-007",
+        "REQ-008",
+        "REQ-009",
+        "REQ-010",
+        "REQ-011",
+        "REQ-001",
+        "REQ-002",
+        "REQ-003",
+    ],
+)
+def test_agent_expected_outcome_matches_fixture(request_id: str) -> None:
+    """Assert deterministic fixture outcomes for deny, escalate, and approve sample requests."""
+    raw_request = _get_raw_request_by_id(request_id)
+    expected_outcome = raw_request.get("expected_outcome")
+    assert isinstance(expected_outcome, str)
 
-    assert result.data.decision == "approve"
-    assert result.data.rationale.strip()
+    result = _run_fixture_case(request_id)
 
-
-@pytest.mark.asyncio
-async def test_agent_deny_req_006_budget_overage() -> None:
-    """REQ-006 should be denied due to budget overage on CC-003."""
-    result = await _run_fixture_case("REQ-006")
-
-    assert result.data.decision == "deny"
-    assert result.data.rationale.strip()
-
-
-@pytest.mark.asyncio
-async def test_agent_policy_deny_req_009_catering_prohibition() -> None:
-    """REQ-009 should be denied due to POL-004 catering prohibition."""
-    result = await _run_fixture_case("REQ-009")
-
-    assert result.data.decision == "deny"
-    assert result.data.rationale.strip()
-
-
-@pytest.mark.asyncio
-async def test_agent_escalate_req_011_compliance_flagged_vendor() -> None:
-    """REQ-011 should escalate for compliance-flagged vendor Vertex Consulting."""
-    result = await _run_fixture_case("REQ-011")
-
-    assert result.data.decision == "escalate"
+    assert result.data.decision == expected_outcome
     assert result.data.rationale.strip()
