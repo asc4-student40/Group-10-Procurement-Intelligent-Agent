@@ -28,7 +28,7 @@ SYSTEM_PROMPT = (
     "Use tool outputs as the only source of decision evidence. "
     "If any tool returns an error, you must escalate the request and explicitly "
     "reference the error and data loading failure details in the rationale. "
-    "Use this strict priority when multiple checks fire: escalate > deny > "
+    "Use this strict priority when multiple checks fire: deny > escalate > "
     "approve. "
     "Rationale template is mandatory. "
     "Write the rationale as one paragraph of 2 to 4 complete sentences and never use bullet points. "
