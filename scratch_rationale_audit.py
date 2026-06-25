@@ -1,12 +1,10 @@
 from __future__ import annotations
 
-import json
 import re
-from pathlib import Path
 
 from agent import agent
+from data.loader import load_requests
 
-REQUESTS_PATH = Path("mock_data/requests.json")
 CHECK_KEYWORDS = [
     "budget",
     "vendor duplication",
@@ -62,7 +60,7 @@ def evaluate_rationale(rationale: str, vendor_name: str) -> list[str]:
 
 
 def main() -> int:
-    requests = json.loads(REQUESTS_PATH.read_text(encoding="utf-8"))
+    requests = load_requests()
     failures_by_request: list[tuple[str, str, list[str], str]] = []
 
     for request in requests:
