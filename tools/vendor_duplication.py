@@ -143,6 +143,7 @@ def check_vendor_duplication(
         return {"error": error.model_dump()}
 
     conflicts: list[ConflictingContract] = []
+    requested_vendor_is_contracted = False
     for raw_vendor in raw_vendors:
         try:
             vendor = VendorRecord.model_validate(raw_vendor)
@@ -153,6 +154,13 @@ def check_vendor_duplication(
                 context={"vendor_id": vendor_id, "category": category},
             )
             return {"error": error.model_dump()}
+
+        if (
+            vendor.vendor_id == vendor_id
+            and vendor.category == category
+            and vendor.contract_status == "active"
+        ):
+            requested_vendor_is_contracted = True
 
         is_conflict = (
             vendor.vendor_id != vendor_id
@@ -170,7 +178,9 @@ def check_vendor_duplication(
 
     duplication_conflict = len(conflicts) > 0
     threshold_exceeded = total_amount > POL001_THRESHOLD
-    single_source_violation = duplication_conflict and threshold_exceeded
+    single_source_violation = (
+        duplication_conflict and threshold_exceeded and not requested_vendor_is_contracted
+    )
 
     result = VendorDuplicationResult(
         duplication_conflict=duplication_conflict,
