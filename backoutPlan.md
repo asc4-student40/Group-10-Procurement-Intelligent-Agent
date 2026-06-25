@@ -4,7 +4,9 @@
 **Component**: Procurement and Vendor Intelligence Agent (Track A Capstone)
 **Repository**: [GitLab repository URL]
 **Last Updated**: [fill in before Session 4 peer review]
-**Prepared By**: [team name]
+**Prepared By**: [Avengers]
+**Team Members**: [Prashanth, Satya and Prasad]
+
 
 ---
 
@@ -15,7 +17,7 @@ and the test suite is passing.
 
 | Field | Value |
 |-------|-------|
-| Last stable commit hash | [run: `git log --oneline -1`] |
+| Last stable commit hash | [run: `git log --oneline -1`] | 1d6a263
 | Last stable tag / version | [fill in if tagged; otherwise use commit hash] |
 | Date of last stable state | |
 | Verified by | |
