@@ -3,15 +3,14 @@
 from __future__ import annotations
 
 import asyncio
-import json
-from pathlib import Path
 
 from agent import agent
+from data.loader import load_requests
 from models import PurchaseRequest
 
 
 async def main() -> None:
-    requests_data = json.loads(Path("mock_data/requests.json").read_text(encoding="utf-8"))
+    requests_data = load_requests()
 
     results = {"approve": 0, "deny": 0, "escalate": 0, "mismatch": 0}
 
