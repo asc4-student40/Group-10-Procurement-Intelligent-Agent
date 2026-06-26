@@ -35,23 +35,38 @@ The system SHALL orchestrate all four procurement tools for each evaluated reque
 The system SHALL resolve the final recommendation using deterministic priority when multiple checks
 produce actionable signals.
 
-#### Scenario: Deny has highest priority
-- **WHEN** one or more tool outputs include a deny-triggering signal (for example a deny
-  `forced_decision` from policy or vendor duplication)
-- **THEN** the final recommendation decision is `deny`
-
-#### Scenario: Escalate has second priority
-- **WHEN** no deny-triggering signal is present and one or more tool outputs include an
-  escalate-triggering signal
+#### Scenario: Tool errors force safe escalation
+- **WHEN** one or more tools return a structured error payload
 - **THEN** the final recommendation decision is `escalate`
 
-#### Scenario: Approve only when no deny or escalate signals exist
-- **WHEN** all tool outputs are non-blocking and contain no deny or escalate triggers
-- **THEN** the final recommendation decision is `approve`
+#### Scenario: Compliance-flagged vendors force escalation
+- **WHEN** risk assessment indicates a compliance flag or policy output includes `POL-006`
+- **THEN** the final recommendation decision is `escalate`
 
-#### Scenario: Mixed deny and escalate signals resolve to deny
-- **WHEN** deny and escalate signals are both present in the same evaluation
+#### Scenario: Deny triggers apply for policy and duplication violations
+- **WHEN** outputs include deny-triggering policy IDs (`POL-001`, `POL-004`, `POL-005`) or
+  vendor duplication returns a deny trigger
 - **THEN** the final recommendation decision is `deny`
+
+#### Scenario: Budget overage near director threshold escalates
+- **WHEN** budget is exceeded and request total is in the near-threshold band ($47,500 to <$50,000)
+- **THEN** the final recommendation decision is `escalate`
+
+#### Scenario: Budget overage outside near-threshold band denies
+- **WHEN** budget is exceeded and request total is below $47,500
+- **THEN** the final recommendation decision is `deny`
+
+#### Scenario: Near-threshold requests escalate
+- **WHEN** request total is in the near-threshold band ($47,500 to <$50,000)
+- **THEN** the final recommendation decision is `escalate`
+
+#### Scenario: POL-002 is informational in final tie-breaking
+- **WHEN** policy output includes `POL-002` without other blocking signals
+- **THEN** POL-002 does not by itself force `deny` or `escalate`
+
+#### Scenario: Approve only when no blocking signals exist
+- **WHEN** no tool errors, compliance escalation, deny triggers, or near-threshold escalation apply
+- **THEN** the final recommendation decision is `approve`
 
 ### Requirement: Error-aware recommendation behavior
 The system SHALL handle tool errors explicitly and incorporate them into recommendation logic and
@@ -91,5 +106,6 @@ structured recommendation behavior.
 
 #### Scenario: Prompt enforces deterministic tie-breaking
 - **WHEN** multiple tool findings conflict
-- **THEN** the prompt instructs the model to apply priority order: `deny` before `escalate` before
-  `approve`
+- **THEN** the prompt instructs the model to apply deterministic tie-breaking consistent with
+  implementation rules: tool-error/compliance escalation, policy/duplication denies, near-threshold
+  escalation, then approve
