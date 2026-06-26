@@ -196,3 +196,16 @@ agent: Agent[None, ProcurementRecommendation] = Agent(
     ),
     tools=[check_budget, check_vendor_duplication, check_policy_compliance, assess_risk],
 )
+
+
+def evaluate_request(request: PurchaseRequest) -> ProcurementRecommendation:
+    """Evaluate one purchase request and return a structured recommendation."""
+    result = agent.run_sync(f"Evaluate request with request_id='{request.request_id}'")
+    recommendation = getattr(result, "data", None)
+    if recommendation is None:
+        recommendation = getattr(result, "output", None)
+
+    if not isinstance(recommendation, ProcurementRecommendation):
+        raise TypeError("Agent returned an unexpected recommendation payload type")
+
+    return recommendation
